@@ -1,0 +1,4 @@
+# Backend bridge dependencies (in addition to the export-agent requirements)
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9   # for audio file upload

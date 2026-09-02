@@ -1,0 +1,49 @@
+# Environment & Secrets (NEVER push .env files)
+.env
+.env.*
+!.env.example
+*.env
+**/.env
+**/.env.*
+
+# Explicit User Exclusions
+graphify-out/
+graphify-out
+[Dd][Ee][Ss][Ii][Gg][Nn]*.md
+[Dd][Ee][Ss][Ii][Gg][Nn]*
+**/[Dd][Ee][Ss][Ii][Gg][Nn]*.md
+DESIGN.md
+design.md
+**/DESIGN.md
+**/design.md
+
+# Build Artifacts & Dependencies
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Vector Store auto-generated cache
+export-agent/data/vector_store/*
+!export-agent/data/vector_store/.gitkeep
+export-agent/data/raw/*
+!export-agent/data/raw/.gitkeep
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+.streamlit/

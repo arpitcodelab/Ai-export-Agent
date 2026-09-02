@@ -1,0 +1,36 @@
+/* Floating chat launcher button (Claude-style toggle) */
+.chat-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 190;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--rounded-pill);
+  padding: 12px 18px;
+  height: 52px;
+  box-shadow: 0 8px 24px rgba(204, 120, 92, 0.4);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+.chat-fab:hover {
+  background: var(--primary-active);
+  transform: translateY(-2px);
+}
+.fab-icon { font-size: 20px; }
+.fab-label {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+@media (max-width: 480px) {
+  .chat-fab { right: 16px; bottom: 16px; }
+  .fab-label { display: none; }
+  .chat-fab { width: 56px; padding: 0; justify-content: center; border-radius: 50%; }
+}

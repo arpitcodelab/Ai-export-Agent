@@ -1,0 +1,85 @@
+/* ============================================================
+   DESIGN TOKENS
+   Derived from claude/DESIGN.md (warm-canvas editorial system).
+   Cream canvas + warm coral + dark navy product surfaces.
+   ============================================================ */
+
+:root {
+  /* Colors — Brand & Accent */
+  --primary: #cc785c;
+  --primary-active: #a9583e;
+  --primary-disabled: #e6dfd8;
+  --ink: #141413;
+  --accent-teal: #5db8a6;
+  --accent-amber: #e8a55a;
+
+  /* Colors — Surface */
+  --canvas: #faf9f5;
+  --surface-soft: #f5f0e8;
+  --surface-card: #efe9de;
+  --surface-cream-strong: #e8e0d2;
+  --surface-dark: #181715;
+  --surface-dark-elevated: #252320;
+  --surface-dark-soft: #1f1e1b;
+  --hairline: #e6dfd8;
+  --hairline-soft: #ebe6df;
+
+  /* Colors — Text */
+  --body-strong: #252523;
+  --body: #3d3d3a;
+  --muted: #6c6a64;
+  --muted-soft: #8e8b82;
+  --on-primary: #ffffff;
+  --on-dark: #faf9f5;
+  --on-dark-soft: #a09d96;
+
+  /* Colors — Semantic */
+  --success: #5db872;
+  --warning: #d4a017;
+  --error: #c64545;
+
+  /* Typography — Display (slab-serif; Cormorant Garamond substitutes Copernicus) */
+  --display-xl: 64px;
+  --display-lg: 48px;
+  --display-md: 36px;
+  --display-sm: 28px;
+
+  /* Typography — Body / UI (Inter substitutes StyreneB) */
+  --title-lg: 22px;
+  --title-md: 18px;
+  --title-sm: 16px;
+  --body-md: 16px;
+  --body-sm: 14px;
+  --caption: 13px;
+  --caption-uppercase: 12px;
+  --code: 14px;
+  --button: 14px;
+  --nav-link: 14px;
+
+  --font-display: 'Cormorant Garamond', 'Tiempos Headline', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Rounded */
+  --rounded-xs: 4px;
+  --rounded-sm: 6px;
+  --rounded-md: 8px;
+  --rounded-lg: 12px;
+  --rounded-xl: 16px;
+  --rounded-pill: 9999px;
+
+  /* Spacing */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+  --space-section: 96px;
+
+  /* Component-level */
+  --nav-height: 64px;
+  --container-max: 1200px;
+  --shadow-soft: 0 1px 3px rgba(20, 20, 19, 0.08);
+}
