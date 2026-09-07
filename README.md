@@ -1,3 +1,16 @@
+---
+title: AI Export Facilitation Agent
+emoji: 🚢
+colorFrom: indigo
+colorTo: purple
+sdk: streamlit
+sdk_version: "1.35.0"
+app_file: app.py
+pinned: false
+license: mit
+short_description: AI guide for exporting products from India. RAG + Voice.
+---
+
 # 🚀 AI Export Facilitation Agent (India Export AI)
 
 > **Your intelligent, trustworthy AI guide for exporting products from India to the world.**

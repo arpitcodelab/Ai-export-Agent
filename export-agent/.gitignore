@@ -20,7 +20,8 @@ env/
 .env/
 
 # Vector store (auto-generated, large, re-buildable)
-data/vector_store/*
+# vector_store committed for HF Spaces (pre-built index)
+!data/vector_store/.gitkeep
 !data/vector_store/.gitkeep
 
 # Raw user documents (may contain sensitive business data)
