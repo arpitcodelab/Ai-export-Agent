@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -40,14 +40,41 @@ from voice import transcribe_audio, text_to_speech, is_groq_configured  # noqa: 
 
 app = FastAPI(title="India Export AI — Landing API", version="1.0.0")
 
-# Allow the Vite dev server (5173) and any production origin to call us.
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Origins are read from an env var so each deployment (local dev, staging,
+# production) can set its own allow-list instead of the API being open to
+# every website on the internet. Defaults cover the Vite dev server only.
+#
+# Set in .env, e.g.:
+#   ALLOWED_ORIGINS=https://your-frontend-domain.com,https://staging.your-frontend-domain.com
+_default_dev_origins = "http://localhost:5173,http://127.0.0.1:5173"
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", _default_dev_origins).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten this in production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── API key auth (optional) ─────────────────────────────────────────────────
+# If API_KEY is set in the environment, every request must send it via the
+# `X-API-Key` header, or it's rejected with 401. If API_KEY is left unset
+# (e.g. local development), auth is skipped entirely — nothing breaks for
+# people running this locally without configuring anything extra.
+API_KEY = os.getenv("API_KEY", "").strip()
+
+
+async def require_api_key(x_api_key: Optional[str] = Header(default=None)):
+    if not API_KEY:
+        return  # auth disabled — no key configured
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key header")
 
 
 # ── Request / response models ───────────────────────────────────────────────
@@ -89,7 +116,7 @@ def health():
 
 # ── Chat ────────────────────────────────────────────────────────────────────
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(require_api_key)])
 def chat(req: ChatRequest):
     question = (req.question or "").strip()
     if not question:
@@ -116,7 +143,7 @@ def chat(req: ChatRequest):
 
 # ── Voice: speech-to-text ───────────────────────────────────────────────────
 
-@app.post("/voice/stt")
+@app.post("/voice/stt", dependencies=[Depends(require_api_key)])
 async def voice_stt(audio: UploadFile = File(...), language: str = Form("en")):
     data = await audio.read()
     text = transcribe_audio(data, language=language)
@@ -127,7 +154,7 @@ async def voice_stt(audio: UploadFile = File(...), language: str = Form("en")):
 
 # ── Voice: text-to-speech ───────────────────────────────────────────────────
 
-@app.post("/voice/tts")
+@app.post("/voice/tts", dependencies=[Depends(require_api_key)])
 def voice_tts(req: TTSRequest):
     if not req.text:
         return {"error": "Empty text"}
