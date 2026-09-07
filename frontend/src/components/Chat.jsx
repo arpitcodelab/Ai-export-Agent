@@ -1,7 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { chat, speechToText, textToSpeech, getHealth } from '../api.js'
+import { useChatHistory } from '../hooks/useChatHistory.js'
 import SpikeMark from './SpikeMark.jsx'
+import {
+  IconHistory,
+  IconPlus,
+  IconClose,
+  IconTrash,
+  IconShip,
+  IconUser,
+  IconMic,
+  IconStop,
+  IconSpeaker,
+  IconPin,
+  IconPaperclip,
+  IconWarning,
+} from './Icons.jsx'
 import './Chat.css'
 
 const SUGGESTIONS = [
@@ -36,7 +51,16 @@ function Md({ children }) {
 }
 
 export default function ChatPanel({ open, onClose }) {
-  const [messages, setMessages] = useState([])
+  const {
+    sessions,
+    activeId,
+    messages,
+    setMessages,
+    newSession,
+    switchSession,
+    deleteSession,
+  } = useChatHistory()
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [recording, setRecording] = useState(false)
@@ -97,7 +121,7 @@ export default function ChatPanel({ open, onClose }) {
     } catch (e) {
       setMessages((m) => [
         ...m,
-        { role: 'assistant', content: `⚠️ ${e.message}`, is_error: true },
+        { role: 'assistant', content: `${e.message}`, is_error: true },
       ])
     } finally {
       setBusy(false)
@@ -120,10 +144,10 @@ export default function ChatPanel({ open, onClose }) {
           if (res.text) {
             setInput(res.text)
           } else {
-            setMessages((m) => [...m, { role: 'assistant', content: `⚠️ ${res.error || 'Could not understand audio.'}`, is_error: true }])
+            setMessages((m) => [...m, { role: 'assistant', content: `${res.error || 'Could not understand audio.'}`, is_error: true }])
           }
         } catch (e) {
-          setMessages((m) => [...m, { role: 'assistant', content: `⚠️ ${e.message}`, is_error: true }])
+          setMessages((m) => [...m, { role: 'assistant', content: `${e.message}`, is_error: true }])
         } finally {
           setBusy(false)
         }
@@ -132,7 +156,7 @@ export default function ChatPanel({ open, onClose }) {
       mediaRecorder.current = mr
       setRecording(true)
     } catch (e) {
-      setMessages((m) => [...m, { role: 'assistant', content: `⚠️ Microphone access denied: ${e.message}`, is_error: true }])
+      setMessages((m) => [...m, { role: 'assistant', content: `Microphone access denied: ${e.message}`, is_error: true }])
     }
   }
 
@@ -187,21 +211,75 @@ export default function ChatPanel({ open, onClose }) {
               {health ? `${health.knowledge_base.chunks} facts indexed` : 'Connecting…'}
             </span>
           </div>
+          <button
+            className="panel-icon-btn"
+            onClick={() => setHistoryOpen((v) => !v)}
+            aria-label="Chat history"
+            title="Chat history"
+          >
+            <IconHistory />
+          </button>
+          <button
+            className="panel-icon-btn"
+            onClick={() => {
+              newSession()
+              setHistoryOpen(false)
+            }}
+            aria-label="New chat"
+            title="New chat"
+          >
+            <IconPlus />
+          </button>
           <button className="panel-close" onClick={onClose} aria-label="Close chat">
-            ✕
+            <IconClose />
           </button>
         </div>
 
+        {historyOpen && (
+          <div className="history-panel">
+            <div className="history-panel-title">Past chats</div>
+            {sessions.length === 0 ? (
+              <div className="history-empty">No saved chats yet.</div>
+            ) : (
+              <div className="history-list">
+                {sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className={`history-item ${s.id === activeId ? 'history-item-active' : ''}`}
+                    onClick={() => {
+                      switchSession(s.id)
+                      setHistoryOpen(false)
+                    }}
+                  >
+                    <div className="history-item-title">{s.title}</div>
+                    <button
+                      className="history-item-delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteSession(s.id)
+                      }}
+                      aria-label={`Delete "${s.title}"`}
+                      title="Delete chat"
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {repo.error && (
           <div className="repo-error">
-            ⚠️ {repo.error}
+            <IconWarning /> {repo.error}
           </div>
         )}
 
         <div className="chat-log">
           {messages.length === 0 ? (
             <div className="chat-empty">
-              <div className="empty-icon">🚢</div>
+              <div className="empty-icon"><IconShip size={40} /></div>
               <p>Ask anything about exporting from India.</p>
               <div className="suggestions">
                 {SUGGESTIONS.map((s) => (
@@ -214,14 +292,14 @@ export default function ChatPanel({ open, onClose }) {
           ) : (
             messages.map((m, i) => (
               <div key={i} className={`msgrow msg-${m.role}`}>
-                <div className="msgrow-avatar">{m.role === 'user' ? '👤' : '🚢'}</div>
+                <div className="msgrow-avatar">{m.role === 'user' ? <IconUser size={16} /> : <IconShip size={16} />}</div>
                 <div className="msgrow-body">
                   {m.role === 'assistant' && !m.is_error && (
                     <div className="msg-meta">
                       {m.is_faq ? (
-                        <span className="meta-badge meta-faq">⚡ Instant answer</span>
+                        <span className="meta-badge meta-faq">Instant answer</span>
                       ) : m.is_fallback ? (
-                        <span className="meta-badge meta-fallback">❓ Knowledge base limit</span>
+                        <span className="meta-badge meta-fallback">Knowledge base limit</span>
                       ) : (
                         <span className="meta-badge meta-ai">
                           AI answer · {m.chunks} source{m.chunks === 1 ? '' : 's'}
@@ -239,15 +317,15 @@ export default function ChatPanel({ open, onClose }) {
                   </div>
                   {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                     <div className="sources">
-                      <div className="sources-title">📌 Sources used</div>
+                      <div className="sources-title"><IconPin size={11} /> Sources used</div>
                       {m.sources.map((s, j) => (
                         <div className="source-line" key={j}>
                           {s.url ? (
                             <a href={s.url} target="_blank" rel="noreferrer" className="source-link">
-                              📎 {s.name}
+                              <IconPaperclip size={11} /> {s.name}
                             </a>
                           ) : (
-                            <span>📎 <b>{s.name}</b></span>
+                            <span><IconPaperclip size={11} /> <b>{s.name}</b></span>
                           )}
                           {s.last_verified && <span className="source-verified"> · verified {s.last_verified}</span>}
                         </div>
@@ -256,7 +334,7 @@ export default function ChatPanel({ open, onClose }) {
                   )}
                   {m.role === 'assistant' && !m.is_error && (
                     <button className="listen-btn" onClick={() => listen(i, m.content)}>
-                      {listeningId === i ? '⏸ Stop' : '🔊 Listen'}
+                      {listeningId === i ? <><IconStop size={12} /> Stop</> : <><IconSpeaker size={12} /> Listen</>}
                     </button>
                   )}
                 </div>
@@ -265,7 +343,7 @@ export default function ChatPanel({ open, onClose }) {
           )}
           {busy && (
             <div className="msgrow msg-assistant">
-              <div className="msgrow-avatar">🚢</div>
+              <div className="msgrow-avatar"><IconShip size={16} /></div>
               <div className="typing">
                 <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
               </div>
@@ -280,7 +358,7 @@ export default function ChatPanel({ open, onClose }) {
             onClick={recording ? stopRecording : startRecording}
             title="Record your question"
           >
-            {recording ? '🔴' : '🎙️'}
+            <IconMic />
           </button>
           <textarea
             ref={inputRef}
@@ -300,7 +378,11 @@ export default function ChatPanel({ open, onClose }) {
             Send
           </button>
         </div>
-        {recording && <div className="rec-bar">🔴 Recording… click the red mic to stop</div>}
+        {recording && (
+          <div className="rec-bar">
+            <span className="rec-dot" /> Recording… click the mic to stop
+          </div>
+        )}
       </aside>
     </>
   )

@@ -4,6 +4,19 @@
 
 const BASE = '/api'
 
+// Only sent if VITE_API_KEY is set at build time (frontend/.env), matching
+// the backend's optional API_KEY check in backend/main.py. If neither side
+// sets a key, auth is skipped entirely and everything behaves as before.
+// NOTE: this is a basic shared-secret check, not real user authentication —
+// anything shipped to the browser is visible to whoever opens dev tools. It
+// stops casual/automated abuse of an open endpoint; it does not replace
+// proper auth (e.g. per-user login) if that's ever needed.
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
+function authHeaders(extra = {}) {
+  return API_KEY ? { ...extra, 'X-API-Key': API_KEY } : extra
+}
+
 async function handle(res) {
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -20,7 +33,7 @@ export async function getHealth() {
 export async function chat(question, topK = null) {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ question, top_k: topK }),
   })
   return handle(res)
@@ -33,6 +46,7 @@ export async function speechToText(audioBlob, language = 'en') {
   form.append('language', language)
   const res = await fetch(`${BASE}/voice/stt`, {
     method: 'POST',
+    headers: authHeaders(),
     body: form,
   })
   return handle(res)
@@ -42,7 +56,7 @@ export async function speechToText(audioBlob, language = 'en') {
 export async function textToSpeech(text, lang = 'en') {
   const res = await fetch(`${BASE}/voice/tts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ text, lang }),
   })
   return handle(res)
