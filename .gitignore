@@ -35,7 +35,7 @@ venv/
 env/
 
 # Vector Store auto-generated cache
-# vector_store committed for HF Spaces (pre-built index)
+export-agent/data/vector_store/*
 !export-agent/data/vector_store/.gitkeep
 export-agent/data/raw/*
 !export-agent/data/raw/.gitkeep
@@ -46,6 +46,4 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
-# .streamlit/ tracked for HF Spaces theme config
-!.streamlit/
-!.streamlit/config.toml
+.streamlit/
