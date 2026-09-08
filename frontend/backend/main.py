@@ -3,16 +3,14 @@ main.py — FastAPI backend bridge for the AI Export Facilitation Agent landing 
 
 This backend REUSES the existing, untouched Python agent pipeline
 (export-agent/src/agent.py, voice.py, nlp.py) and exposes it as a clean
-JSON API for the React frontend.
+JSON API for the React frontend while serving the React frontend itself.
 
 Endpoints:
-  GET  /health        -> system + knowledge base status
-  POST /chat          -> {question} -> {text, sources, is_faq, is_fallback, chunks_count, intent}
-  POST /voice/stt     -> audio upload bytes -> {text}
-  POST /voice/tts     -> {text, lang?}     -> {audio: base64 mp3}
-
-It does NOT modify any file inside export-agent/. It imports from that
-folder at runtime by adding it to sys.path.
+  GET  /health, /api/health        -> system + knowledge base status
+  POST /chat,   /api/chat          -> {question} -> {text, sources, is_faq, is_fallback, chunks_count, intent}
+  POST /voice/stt, /api/voice/stt  -> audio upload bytes -> {text}
+  POST /voice/tts, /api/voice/tts  -> {text, lang?}     -> {audio: base64 mp3}
+  GET  /                           -> React Landing Page (frontend/dist/index.html)
 """
 
 import base64
@@ -21,14 +19,16 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, Form
+from fastapi import APIRouter, Depends, FastAPI, File, Header, HTTPException, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # ── Point at the existing export-agent pipeline ─────────────────────────────
-# The agent pipeline lives in <AI export>/export-agent/src. We import it
-# directly so there is exactly ONE source of truth (no duplicated logic).
 AGENT_SRC = Path(__file__).resolve().parent.parent.parent / "export-agent" / "src"
+if not AGENT_SRC.exists():
+    AGENT_SRC = Path.cwd() / "export-agent" / "src"
 if str(AGENT_SRC) not in sys.path:
     sys.path.insert(0, str(AGENT_SRC))
 
@@ -40,39 +40,47 @@ from voice import transcribe_audio, text_to_speech, is_groq_configured  # noqa: 
 
 app = FastAPI(title="India Export AI — Landing API", version="1.0.0")
 
+
+@app.on_event("startup")
+def startup_event():
+    try:
+        chroma_file = Path(__file__).resolve().parent.parent.parent / "export-agent" / "data" / "vector_store" / "chroma.sqlite3"
+        if not chroma_file.exists():
+            print("ChromaDB index not found at startup — building now...")
+            import subprocess
+            build_script = Path(__file__).resolve().parent.parent.parent / "export-agent" / "src" / "build_index.py"
+            if build_script.exists():
+                subprocess.run([sys.executable, str(build_script)], check=True)
+                print("ChromaDB index build completed.")
+        get_retriever()
+    except Exception as e:
+        print(f"Warning: retriever warm-up failed: {e}")
+
+
 # ── CORS ─────────────────────────────────────────────────────────────────────
-# Origins are read from an env var so each deployment (local dev, staging,
-# production) can set its own allow-list instead of the API being open to
-# every website on the internet. Defaults cover the Vite dev server only.
-#
-# Set in .env, e.g.:
-#   ALLOWED_ORIGINS=https://your-frontend-domain.com,https://staging.your-frontend-domain.com
-_default_dev_origins = "http://localhost:5173,http://127.0.0.1:5173"
-ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", _default_dev_origins).split(",")
-    if o.strip()
-]
+raw_origins = os.getenv("ALLOWED_ORIGINS", "*").strip()
+if raw_origins == "*":
+    ALLOWED_ORIGINS = ["*"]
+    ALLOW_CREDENTIALS = False
+else:
+    ALLOWED_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    ALLOW_CREDENTIALS = True
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ── API key auth (optional) ─────────────────────────────────────────────────
-# If API_KEY is set in the environment, every request must send it via the
-# `X-API-Key` header, or it's rejected with 401. If API_KEY is left unset
-# (e.g. local development), auth is skipped entirely — nothing breaks for
-# people running this locally without configuring anything extra.
 API_KEY = os.getenv("API_KEY", "").strip()
 
 
 async def require_api_key(x_api_key: Optional[str] = Header(default=None)):
     if not API_KEY:
-        return  # auth disabled — no key configured
+        return
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key header")
 
@@ -89,9 +97,11 @@ class TTSRequest(BaseModel):
     lang: Optional[str] = "en"
 
 
-# ── Health ──────────────────────────────────────────────────────────────────
+# ── API Routes (mounted on router for both /api and / prefixes) ─────────────
+api_router = APIRouter()
 
-@app.get("/health")
+
+@api_router.get("/health")
 def health():
     kb_status = {"status": "unknown", "chunks": 0, "collection": None}
     try:
@@ -114,18 +124,13 @@ def health():
     }
 
 
-# ── Chat ────────────────────────────────────────────────────────────────────
-
-@app.post("/chat", dependencies=[Depends(require_api_key)])
+@api_router.post("/chat", dependencies=[Depends(require_api_key)])
 def chat(req: ChatRequest):
     question = (req.question or "").strip()
     if not question:
         return {"error": "Empty question"}
 
-    # Run NLP pre-processing (normalise + intent) for better understanding.
     nlp = process_question(question)
-
-    # Call the existing agent (no codebase changes).
     result = agent_answer(question, top_k=req.top_k) if req.top_k else agent_answer(question)
 
     return {
@@ -141,9 +146,7 @@ def chat(req: ChatRequest):
     }
 
 
-# ── Voice: speech-to-text ───────────────────────────────────────────────────
-
-@app.post("/voice/stt", dependencies=[Depends(require_api_key)])
+@api_router.post("/voice/stt", dependencies=[Depends(require_api_key)])
 async def voice_stt(audio: UploadFile = File(...), language: str = Form("en")):
     data = await audio.read()
     text = transcribe_audio(data, language=language)
@@ -152,9 +155,7 @@ async def voice_stt(audio: UploadFile = File(...), language: str = Form("en")):
     return {"error": "Could not transcribe audio", "text": None}
 
 
-# ── Voice: text-to-speech ───────────────────────────────────────────────────
-
-@app.post("/voice/tts", dependencies=[Depends(require_api_key)])
+@api_router.post("/voice/tts", dependencies=[Depends(require_api_key)])
 def voice_tts(req: TTSRequest):
     if not req.text:
         return {"error": "Empty text"}
@@ -164,6 +165,36 @@ def voice_tts(req: TTSRequest):
     return {"error": "Text-to-speech failed", "audio": None}
 
 
+# Mount routes at both /api and root level
+app.include_router(api_router, prefix="/api")
+app.include_router(api_router)
+
+
+# ── Static Frontend Serving ─────────────────────────────────────────────────
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "dist"
+if not FRONTEND_DIST.exists():
+    alt_dist = Path.cwd() / "frontend" / "dist"
+    if alt_dist.exists():
+        FRONTEND_DIST = alt_dist
+
+if FRONTEND_DIST.exists():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/")
+    async def serve_root():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        file_path = FRONTEND_DIST / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "7860"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
