@@ -189,9 +189,19 @@ export default function ChatPanel({ open, onClose }) {
     }
   }
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   return (
     <>
-      {/* Overlay */}
+      {/* Backdrop overlay */}
       <div className={`chat-overlay ${open ? 'open' : ''}`} onClick={onClose} />
 
       {/* Slide-over panel */}
@@ -279,12 +289,19 @@ export default function ChatPanel({ open, onClose }) {
         <div className="chat-log">
           {messages.length === 0 ? (
             <div className="chat-empty">
-              <div className="empty-icon"><IconShip size={40} /></div>
-              <p>Ask anything about exporting from India.</p>
+              <div className="empty-badge">
+                <IconShip size={28} />
+              </div>
+              <h3 className="empty-title">India Export AI Guide</h3>
+              <p className="empty-subtitle">
+                Official export regulations, documentation requirements, DGFT procedures, and customs compliance answered with verified citations.
+              </p>
+              <div className="suggestions-label">Common Inquiries</div>
               <div className="suggestions">
                 {SUGGESTIONS.map((s) => (
                   <button key={s} className="suggestion" onClick={() => send(s)}>
-                    {s}
+                    <span className="suggestion-text">{s}</span>
+                    <span className="suggestion-arrow">→</span>
                   </button>
                 ))}
               </div>
