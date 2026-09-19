@@ -82,6 +82,9 @@ async def require_api_key(x_api_key: Optional[str] = Header(default=None)):
 class ChatRequest(BaseModel):
     question: str
     top_k: Optional[int] = None
+    # Language the answer should be written in: "en" (English) or "hi" (Hindi).
+    # Defaults to English so older clients keep working unchanged.
+    language: Optional[str] = "en"
 
 
 class TTSRequest(BaseModel):
@@ -122,11 +125,20 @@ def chat(req: ChatRequest):
     if not question:
         return {"error": "Empty question"}
 
+    # Only languages we actually have prompt instructions for. Anything else
+    # falls back to English rather than sending an unknown code to the model.
+    language = (req.language or "en").lower()
+    if language not in ("en", "hi"):
+        language = "en"
+
     # Run NLP pre-processing (normalise + intent) for better understanding.
     nlp = process_question(question)
 
-    # Call the existing agent (no codebase changes).
-    result = agent_answer(question, top_k=req.top_k) if req.top_k else agent_answer(question)
+    # Call the agent, asking it to answer in the requested language.
+    if req.top_k:
+        result = agent_answer(question, top_k=req.top_k, language=language)
+    else:
+        result = agent_answer(question, language=language)
 
     return {
         "question": question,
@@ -138,6 +150,8 @@ def chat(req: ChatRequest):
         "is_faq": result.is_faq,
         "is_fallback": result.is_fallback,
         "chunks_count": len(result.chunks_used),
+        # Echoed back so the UI knows which language to read the answer aloud in.
+        "language": language,
     }
 
 

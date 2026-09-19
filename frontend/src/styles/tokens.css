@@ -82,4 +82,59 @@
   --nav-height: 64px;
   --container-max: 1200px;
   --shadow-soft: 0 1px 3px rgba(20, 20, 19, 0.08);
+
+  /* Smooth the switch between light and dark */
+  --theme-transition: background-color 180ms ease, color 180ms ease,
+    border-color 180ms ease;
+}
+
+/* ============================================================
+   DARK THEME
+   Applied by setting data-theme="dark" on <html> (see useTheme.js).
+   Only colour tokens are redefined — every component already reads
+   these variables, so nothing else needs to change per-component.
+   ============================================================ */
+
+:root[data-theme='dark'] {
+  /* Brand & accent — slightly lifted so they stay readable on dark */
+  --primary: #e0916f;
+  --primary-active: #cc785c;
+  --primary-disabled: #3a3733;
+  --ink: #f2f0ec;
+  --accent-teal: #6fc9b6;
+  --accent-amber: #f0b56b;
+
+  /* Surfaces — warm charcoals rather than pure black, to match the
+     warm cream palette of the light theme */
+  --canvas: #1a1917;
+  --surface-soft: #232220;
+  --surface-card: #2b2926;
+  --surface-cream-strong: #35322e;
+  --surface-dark: #121110;
+  --surface-dark-elevated: #2b2926;
+  --surface-dark-soft: #1f1e1b;
+  --hairline: #3a3733;
+  --hairline-soft: #332f2c;
+
+  /* Text */
+  --body-strong: #f5f3ef;
+  --body: #ddd9d2;
+  --muted: #a5a199;
+  --muted-soft: #837f77;
+  --on-primary: #1a1917;
+  --on-dark: #faf9f5;
+  --on-dark-soft: #a09d96;
+
+  /* Semantic — brightened for contrast against dark surfaces */
+  --success: #6ecc83;
+  --warning: #e5b53a;
+  --error: #e06b6b;
+
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+html,
+body {
+  background: var(--canvas);
+  transition: var(--theme-transition);
 }

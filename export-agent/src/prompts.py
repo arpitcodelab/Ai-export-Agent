@@ -77,6 +77,28 @@ Never stop mid-thought; always finish every sentence and every section you start
 6. Every acronym or technical term MUST be explained in plain words the first \
 time you use it. Example: "IEC (your export-import licence number from the government)" \
 not just "IEC".
+
+PLAIN-LANGUAGE RULES (THE READER IS NOT AN EXPERT — FOLLOW THESE STRICTLY):
+6a. Write at roughly a class-8 (14-year-old) reading level. Short sentences. \
+Aim for under 20 words per sentence. One idea per sentence.
+6b. NEVER use an official/legal word without immediately giving the everyday \
+word for it. Write "consignment (your shipment of goods)", "levy (a tax)", \
+"furnish (give)", "prescribed (required)", "remittance (the money your buyer sends)".
+6c. Prefer the everyday word over the official one wherever both work: \
+use "send" not "dispatch", "money" not "funds", "buyer" not "consignee", \
+"form" not "declaration", "apply" not "make an application", "rules" not "provisions".
+6d. Use "you" and "your" throughout. Speak directly to the exporter. \
+Never write in the passive voice ("the application must be submitted") — \
+write "you submit the application".
+6e. Where a number, fee, or deadline appears, say plainly what it means for \
+them. Not just "₹500 fee" but "a ₹500 fee (a one-time payment)".
+6f. When a step involves a government website or office, say plainly what \
+they will actually do there in everyday words, e.g. "you fill an online form \
+and upload your PAN card".
+6g. If a concept is genuinely hard (like an LC or an HS code), add one short \
+everyday comparison to make it click. Keep any comparison to a single sentence.
+6h. Do not use Latin or legal shorthand at all: no "i.e.", "e.g.", "viz.", \
+"inter alia", "as per", "thereof", "herein". Write "for example" and "under".
 7. Do NOT put [Source: ...] after every sentence. Cite sources only once at the end.
 8. Do NOT list more than 4–5 steps. If there are many steps, give the \
 TOP 3 things to do first, then say "After that, you'll also need..." for the rest.
@@ -145,6 +167,50 @@ ADDITIONAL RULE (Schemes): Explain the scheme benefit in one plain sentence. \
 Remind them rules change — check DGFT for latest eligibility. Keep it brief."""
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 2b. LANGUAGE INSTRUCTIONS
+# The knowledge base itself is in English. These instructions tell the model
+# to *answer* in the user's chosen language while still reasoning over the
+# English source facts — so we get Hindi answers without translating or
+# re-indexing the whole knowledge base.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ENGLISH_INSTRUCTION = """
+LANGUAGE: Answer in English."""
+
+HINDI_INSTRUCTION = """
+LANGUAGE (VERY IMPORTANT): Answer ENTIRELY in Hindi, written in the Devanagari \
+script (हिंदी). This applies to every part of your answer — the opening \
+sentence, all bullet points, and any tips.
+
+Hindi-specific rules:
+- Use simple, spoken, everyday Hindi — the way people actually talk, not \
+formal literary or Sanskritised Hindi. Write "मदद" not "सहायता", \
+"इस्तेमाल" not "प्रयोग", "ज़रूरत" not "आवश्यकता".
+- Common English business words that Indian exporters already use every day \
+(export, invoice, shipping bill, online, portal, bank, form, email) may stay \
+in English inside the Hindi sentence — that is normal and clearer than \
+forcing an unusual Hindi translation.
+- KEEP these in English exactly as they are, because they are official names \
+the user must type or search for: government body names and acronyms (DGFT, \
+CBIC, RBI, ICEGATE, APEDA, FIEO), scheme and document names (IEC, GST, RCMC, \
+AD Code, RoDTEP, LUT, FOB, CIF), all website addresses, and the source names \
+in your final "Sources:" line.
+- When you first use one of those English acronyms, explain it in Hindi in \
+brackets right after it. Example: "IEC (सरकार से मिलने वाला आपका \
+export लाइसेंस नंबर)".
+- Write all numbers, fees, and dates in normal digits (₹500, 2–3 दिन).
+- Keep the same friendly, simple, step-by-step shape described above — short \
+sentences, short paragraphs, small bullet lists.
+- Start the "Sources:" line with the Hindi word "स्रोत:" but keep the source \
+file names themselves in English."""
+
+LANGUAGE_INSTRUCTIONS = {
+    "en": ENGLISH_INSTRUCTION,
+    "hi": HINDI_INSTRUCTION,
+}
+
+
 # Map category names (from knowledge_base.json) to their add-on prompts
 CATEGORY_ADDONS = {
     "HS Code Guidance": HS_CODE_ADDON,
@@ -171,6 +237,30 @@ For accurate, up-to-date guidance, please check one of these official sources:
 - A **licensed customs broker** for shipment-specific advice
 
 I don't want to guess on something that could affect your shipment. 🙏"""
+
+
+NO_ANSWER_FALLBACK_HI = """इस विषय पर मेरे पास अभी पक्की जानकारी नहीं है।
+
+सही और नई जानकारी के लिए नीचे दी गई सरकारी वेबसाइट देखें:
+- **DGFT** (विदेश व्यापार महानिदेशालय): https://www.dgft.gov.in
+- **ICEGATE** (कस्टम्स): https://www.icegate.gov.in
+- **FIEO** (निर्यातक संगठनों का संघ): https://www.fieo.org
+- **RBI** (पैसे और विदेशी मुद्रा के नियमों के लिए): https://www.rbi.org.in
+- **CBIC** (अप्रत्यक्ष कर बोर्ड): https://www.cbic.gov.in
+- अपनी shipment से जुड़ी सलाह के लिए किसी **licensed customs broker** से बात करें
+
+मैं अंदाज़ा लगाकर कुछ नहीं बताना चाहता, क्योंकि इससे आपकी shipment पर असर पड़ सकता है। 🙏"""
+
+
+NO_ANSWER_FALLBACKS = {
+    "en": NO_ANSWER_FALLBACK,
+    "hi": NO_ANSWER_FALLBACK_HI,
+}
+
+
+def get_no_answer_fallback(language: str = "en") -> str:
+    """Return the 'I don't know' message in the requested language."""
+    return NO_ANSWER_FALLBACKS.get(language, NO_ANSWER_FALLBACK)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -219,14 +309,22 @@ Sources: ICC — Incoterms 2020""",
 }
 
 
-def get_faq_answer(question: str) -> Optional[str]:
+def get_faq_answer(question: str, language: str = "en") -> Optional[str]:
     """
     Check if a question matches a pre-written FAQ shortcut.
     Returns the pre-written answer string if matched, or None if not.
     
     Matching uses substring containment — the FAQ key must appear as a
     contiguous substring in the question to avoid false positives.
+    
+    The shortcuts above are hand-written in English. When the user has asked
+    for another language we deliberately return None so the question falls
+    through to the normal retrieval + LLM path, which can answer in that
+    language. Otherwise a Hindi user would get an English answer back.
     """
+    if language != "en":
+        return None
+    
     q_lower = question.lower().strip()
     
     for key, answer in FAQ_SHORTCUTS.items():
@@ -266,7 +364,13 @@ NOTES: [specific issues found, or "None" if accurate]"""
 # Helper: Build the full prompt for a given question + retrieved chunks
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_prompt(user_question: str, retrieved_chunks: list[dict], categories: list[str] = None, intent: str = None) -> str:
+def build_prompt(
+    user_question: str,
+    retrieved_chunks: list[dict],
+    categories: list[str] = None,
+    intent: str = None,
+    language: str = "en",
+) -> str:
     """
     Build the complete prompt to send to the LLM.
     
@@ -275,6 +379,9 @@ def build_prompt(user_question: str, retrieved_chunks: list[dict], categories: l
         retrieved_chunks: List of chunk dicts from knowledge_base.json
         categories: List of categories found in retrieved chunks (for add-ons)
         intent: The detected intent label (e.g. 'documents', 'registration')
+        language: Output language code — 'en' (English) or 'hi' (Hindi).
+                  The retrieved facts stay in English either way; this only
+                  controls the language the answer is written in.
     
     Returns:
         The complete prompt string
@@ -300,6 +407,10 @@ def build_prompt(user_question: str, retrieved_chunks: list[dict], categories: l
         for category in categories:
             if category in CATEGORY_ADDONS:
                 prompt += "\n" + CATEGORY_ADDONS[category]
+    
+    # Append the language instruction LAST so it carries the most weight —
+    # instructions placed at the end of a prompt are followed more reliably.
+    prompt += "\n" + LANGUAGE_INSTRUCTIONS.get(language, ENGLISH_INSTRUCTION)
     
     return prompt
 

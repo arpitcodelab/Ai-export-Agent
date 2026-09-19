@@ -37,6 +37,7 @@ from prompts import (
     build_prompt,
     get_faq_answer,
     NO_ANSWER_FALLBACK,
+    get_no_answer_fallback,
     CORE_SYSTEM_PROMPT,
     CATEGORY_ADDONS,
 )
@@ -277,7 +278,7 @@ def extract_sources(chunks: list[dict]) -> list[dict]:
 # Main Agent function
 # ─────────────────────────────────────────────────────────────────────────────
 
-def answer(question: str, top_k: int = TOP_K) -> Answer:
+def answer(question: str, top_k: int = TOP_K, language: str = "en") -> Answer:
     """
     Main agent function: given a question, return a structured Answer.
     
@@ -291,6 +292,9 @@ def answer(question: str, top_k: int = TOP_K) -> Answer:
     Args:
         question: The user's question
         top_k: Number of knowledge base chunks to retrieve
+        language: Language to answer in — 'en' (English) or 'hi' (Hindi).
+                  Retrieval always runs against the English knowledge base;
+                  only the generated answer changes language.
     
     Returns:
         Answer object with text, sources, and metadata
@@ -303,7 +307,9 @@ def answer(question: str, top_k: int = TOP_K) -> Answer:
     intent = detect_intent(question)
 
     # ── Step 1: FAQ Shortcut ─────────────────────────────────────────────────
-    faq_answer = get_faq_answer(question)
+    # Skipped automatically for non-English, since the shortcuts are
+    # pre-written in English.
+    faq_answer = get_faq_answer(question, language=language)
     if faq_answer:
         return Answer(
             text=faq_answer,
@@ -330,7 +336,7 @@ def answer(question: str, top_k: int = TOP_K) -> Answer:
     # ── Step 3: No Relevant Results → Fallback ───────────────────────────────
     if not chunks:
         return Answer(
-            text=NO_ANSWER_FALLBACK,
+            text=get_no_answer_fallback(language),
             sources=[],
             chunks_used=[],
             is_faq=False,
@@ -346,6 +352,7 @@ def answer(question: str, top_k: int = TOP_K) -> Answer:
         retrieved_chunks=chunks,
         categories=categories,
         intent=intent_label(intent),
+        language=language,
     )
     
     # ── Step 5: Call LLM ─────────────────────────────────────────────────────
