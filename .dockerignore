@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+.dockerignore
+node_modules
+frontend/node_modules
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache
+graphify-out
+files
+*.ps1

@@ -211,9 +211,19 @@ export default function ChatPanel({ open, onClose }) {
     }
   }
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   return (
     <>
-      {/* Overlay */}
+      {/* Backdrop overlay */}
       <div className={`chat-overlay ${open ? 'open' : ''}`} onClick={onClose} />
 
       {/* Slide-over panel */}
@@ -337,7 +347,8 @@ export default function ChatPanel({ open, onClose }) {
               <div className="suggestions">
                 {(SUGGESTIONS[language] || SUGGESTIONS.en).map((s) => (
                   <button key={s} className="suggestion" onClick={() => send(s)}>
-                    {s}
+                    <span className="suggestion-text">{s}</span>
+                    <span className="suggestion-arrow">→</span>
                   </button>
                 ))}
               </div>
