@@ -30,11 +30,13 @@ export async function getHealth() {
   return handle(res)
 }
 
-export async function chat(question, topK = null) {
+// language: 'en' (English) or 'hi' (Hindi) — controls the language the
+// answer comes back in. The knowledge base stays English either way.
+export async function chat(question, topK = null, language = 'en') {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ question, top_k: topK }),
+    body: JSON.stringify({ question, top_k: topK, language }),
   })
   return handle(res)
 }

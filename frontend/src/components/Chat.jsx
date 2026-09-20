@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { chat, speechToText, textToSpeech, getHealth } from '../api.js'
 import { useChatHistory } from '../hooks/useChatHistory.js'
+import { useTheme } from '../hooks/useTheme.js'
+import { useLanguage, UI_TEXT } from '../hooks/useLanguage.js'
 import SpikeMark from './SpikeMark.jsx'
 import {
   IconHistory,
@@ -16,15 +18,26 @@ import {
   IconPin,
   IconPaperclip,
   IconWarning,
+  IconSun,
+  IconMoon,
+  IconGlobe,
 } from './Icons.jsx'
 import './Chat.css'
 
-const SUGGESTIONS = [
-  'How do I start exporting from India?',
-  'What documents do I need to export to Germany?',
-  'What is an IEC and how do I get one?',
-  'Do I need FSSAI approval to export food products?',
-]
+const SUGGESTIONS = {
+  en: [
+    'How do I start exporting from India?',
+    'What documents do I need to export to Germany?',
+    'What is an IEC and how do I get one?',
+    'Do I need FSSAI approval to export food products?',
+  ],
+  hi: [
+    'भारत से export कैसे शुरू करें?',
+    'Germany भेजने के लिए कौन-कौन से दस्तावेज़ चाहिए?',
+    'IEC क्या होता है और कैसे मिलता है?',
+    'खाने के सामान के export के लिए FSSAI मंज़ूरी चाहिए क्या?',
+  ],
+}
 
 // A tiny markdown renderer with safe, light styling for chat bubbles.
 function Md({ children }) {
@@ -60,6 +73,8 @@ export default function ChatPanel({ open, onClose }) {
     switchSession,
     deleteSession,
   } = useChatHistory()
+  const { isDark, toggleTheme } = useTheme()
+  const { language, setLanguage, t } = useLanguage()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -105,7 +120,7 @@ export default function ChatPanel({ open, onClose }) {
     setBusy(true)
     setMessages((m) => [...m, { role: 'user', content: q }])
     try {
-      const data = await chat(q)
+      const data = await chat(q, null, language)
       setMessages((m) => [
         ...m,
         {
@@ -116,6 +131,10 @@ export default function ChatPanel({ open, onClose }) {
           is_fallback: data.is_fallback,
           intent: data.intent_label,
           chunks: data.chunks_count,
+          // Remember which language THIS answer was written in, so the
+          // Listen button reads it correctly even if the user switches
+          // language afterwards.
+          language: data.language || language,
         },
       ])
     } catch (e) {
@@ -140,7 +159,7 @@ export default function ChatPanel({ open, onClose }) {
         const blob = new Blob(audioChunks.current, { type: 'audio/webm' })
         setBusy(true)
         try {
-          const res = await speechToText(blob, 'en')
+          const res = await speechToText(blob, language)
           if (res.text) {
             setInput(res.text)
           } else {
@@ -168,7 +187,7 @@ export default function ChatPanel({ open, onClose }) {
   }
 
   // ---- Text-to-speech (listen to an answer) ----
-  const listen = async (index, text) => {
+  const listen = async (index, text, msgLang) => {
     if (listeningId === index) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
@@ -176,7 +195,10 @@ export default function ChatPanel({ open, onClose }) {
       return
     }
     try {
-      const res = await textToSpeech(text, 'en')
+      // Speak in the language the answer itself is in — falling back to
+      // the currently selected language for older saved messages that
+      // don't have a language recorded.
+      const res = await textToSpeech(text, msgLang || language)
       if (res.audio) {
         const url = `data:${res.mime || 'audio/mp3'};base64,${res.audio}`
         audioRef.current.src = url
@@ -209,7 +231,7 @@ export default function ChatPanel({ open, onClose }) {
         <div className="panel-header">
           <div className="panel-brand">
             <SpikeMark size={20} />
-            <span>Export Agent</span>
+            <span>{t.title}</span>
           </div>
           <div className="panel-status">
             {health?.knowledge_base?.status === 'ok' ? (
@@ -218,14 +240,45 @@ export default function ChatPanel({ open, onClose }) {
               <span className="status-dot status-dot-amber" />
             )}
             <span className="panel-status-text">
-              {health ? `${health.knowledge_base.chunks} facts indexed` : 'Connecting…'}
+              {health ? t.factsIndexed(health.knowledge_base.chunks) : t.connecting}
             </span>
           </div>
+
+          {/* Language selector — English / Hindi */}
+          <div className="lang-switch" title={t.language}>
+            <IconGlobe size={14} />
+            <button
+              className={`lang-opt ${language === 'en' ? 'lang-opt-active' : ''}`}
+              onClick={() => setLanguage('en')}
+              aria-pressed={language === 'en'}
+            >
+              EN
+            </button>
+            <span className="lang-sep">/</span>
+            <button
+              className={`lang-opt ${language === 'hi' ? 'lang-opt-active' : ''}`}
+              onClick={() => setLanguage('hi')}
+              aria-pressed={language === 'hi'}
+            >
+              हिं
+            </button>
+          </div>
+
+          {/* Light / dark mode */}
+          <button
+            className="panel-icon-btn"
+            onClick={toggleTheme}
+            aria-label={isDark ? t.lightMode : t.darkMode}
+            title={isDark ? t.lightMode : t.darkMode}
+          >
+            {isDark ? <IconSun /> : <IconMoon />}
+          </button>
+
           <button
             className="panel-icon-btn"
             onClick={() => setHistoryOpen((v) => !v)}
-            aria-label="Chat history"
-            title="Chat history"
+            aria-label={t.chatHistory}
+            title={t.chatHistory}
           >
             <IconHistory />
           </button>
@@ -235,21 +288,21 @@ export default function ChatPanel({ open, onClose }) {
               newSession()
               setHistoryOpen(false)
             }}
-            aria-label="New chat"
-            title="New chat"
+            aria-label={t.newChat}
+            title={t.newChat}
           >
             <IconPlus />
           </button>
-          <button className="panel-close" onClick={onClose} aria-label="Close chat">
+          <button className="panel-close" onClick={onClose} aria-label={t.closeChat}>
             <IconClose />
           </button>
         </div>
 
         {historyOpen && (
           <div className="history-panel">
-            <div className="history-panel-title">Past chats</div>
+            <div className="history-panel-title">{t.pastChats}</div>
             {sessions.length === 0 ? (
-              <div className="history-empty">No saved chats yet.</div>
+              <div className="history-empty">{t.noSavedChats}</div>
             ) : (
               <div className="history-list">
                 {sessions.map((s) => (
@@ -268,8 +321,8 @@ export default function ChatPanel({ open, onClose }) {
                         e.stopPropagation()
                         deleteSession(s.id)
                       }}
-                      aria-label={`Delete "${s.title}"`}
-                      title="Delete chat"
+                      aria-label={`${t.deleteChat}: ${s.title}`}
+                      title={t.deleteChat}
                     >
                       <IconTrash />
                     </button>
@@ -289,16 +342,10 @@ export default function ChatPanel({ open, onClose }) {
         <div className="chat-log">
           {messages.length === 0 ? (
             <div className="chat-empty">
-              <div className="empty-badge">
-                <IconShip size={28} />
-              </div>
-              <h3 className="empty-title">India Export AI Guide</h3>
-              <p className="empty-subtitle">
-                Official export regulations, documentation requirements, DGFT procedures, and customs compliance answered with verified citations.
-              </p>
-              <div className="suggestions-label">Common Inquiries</div>
+              <div className="empty-icon"><IconShip size={40} /></div>
+              <p>{t.emptyTitle}</p>
               <div className="suggestions">
-                {SUGGESTIONS.map((s) => (
+                {(SUGGESTIONS[language] || SUGGESTIONS.en).map((s) => (
                   <button key={s} className="suggestion" onClick={() => send(s)}>
                     <span className="suggestion-text">{s}</span>
                     <span className="suggestion-arrow">→</span>
@@ -314,9 +361,9 @@ export default function ChatPanel({ open, onClose }) {
                   {m.role === 'assistant' && !m.is_error && (
                     <div className="msg-meta">
                       {m.is_faq ? (
-                        <span className="meta-badge meta-faq">Instant answer</span>
+                        <span className="meta-badge meta-faq">{t.instantAnswer}</span>
                       ) : m.is_fallback ? (
-                        <span className="meta-badge meta-fallback">Knowledge base limit</span>
+                        <span className="meta-badge meta-fallback">{t.kbLimit}</span>
                       ) : (
                         <span className="meta-badge meta-ai">
                           AI answer · {m.chunks} source{m.chunks === 1 ? '' : 's'}
@@ -334,7 +381,7 @@ export default function ChatPanel({ open, onClose }) {
                   </div>
                   {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                     <div className="sources">
-                      <div className="sources-title"><IconPin size={11} /> Sources used</div>
+                      <div className="sources-title"><IconPin size={11} /> {t.sourcesUsed}</div>
                       {m.sources.map((s, j) => (
                         <div className="source-line" key={j}>
                           {s.url ? (
@@ -344,14 +391,14 @@ export default function ChatPanel({ open, onClose }) {
                           ) : (
                             <span><IconPaperclip size={11} /> <b>{s.name}</b></span>
                           )}
-                          {s.last_verified && <span className="source-verified"> · verified {s.last_verified}</span>}
+                          {s.last_verified && <span className="source-verified"> · {t.verified} {s.last_verified}</span>}
                         </div>
                       ))}
                     </div>
                   )}
                   {m.role === 'assistant' && !m.is_error && (
-                    <button className="listen-btn" onClick={() => listen(i, m.content)}>
-                      {listeningId === i ? <><IconStop size={12} /> Stop</> : <><IconSpeaker size={12} /> Listen</>}
+                    <button className="listen-btn" onClick={() => listen(i, m.content, m.language)}>
+                      {listeningId === i ? <><IconStop size={12} /> {t.stop}</> : <><IconSpeaker size={12} /> {t.listen}</>}
                     </button>
                   )}
                 </div>
@@ -373,14 +420,14 @@ export default function ChatPanel({ open, onClose }) {
           <button
             className={`mic-btn ${recording ? 'mic-rec' : ''}`}
             onClick={recording ? stopRecording : startRecording}
-            title="Record your question"
+            title={t.recordTitle}
           >
             <IconMic />
           </button>
           <textarea
             ref={inputRef}
             className="input chat-textarea"
-            placeholder="Ask about IEC, GST, documents, customs…"
+            placeholder={t.placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -392,12 +439,12 @@ export default function ChatPanel({ open, onClose }) {
             rows={1}
           />
           <button className="btn btn-primary" onClick={() => send()} disabled={!input.trim() || busy}>
-            Send
+            {t.send}
           </button>
         </div>
         {recording && (
           <div className="rec-bar">
-            <span className="rec-dot" /> Recording… click the mic to stop
+            <span className="rec-dot" /> {t.recording}
           </div>
         )}
       </aside>
